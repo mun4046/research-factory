@@ -11,6 +11,7 @@ Karpathy의 LLM Wiki 패턴(https://gist.github.com/karpathy/442a6bf555914893e98
 ```
 ./                (repo 루트 — private GitHub repo)
 ├── raw/          # 원본 소스 (불변 — 절대 수정하지 않음). 사용자가 넣는 PDF·리포트만
+├── data/         # 로컬 스크립트가 생성하는 기계 데이터 (edgar.json — scripts/edgar_fetch.py). 배치가 읽기만 한다
 ├── pages/        # Claude가 생성·유지하는 마크다운 위키 페이지
 ├── index.md      # 콘텐츠 카탈로그 (모든 pages/ 항목 목록)
 ├── log.md        # 시간순 append-only 활동 로그

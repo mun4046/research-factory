@@ -9,7 +9,8 @@
 3. 각 종목을 `data-sources.md` 규칙(배치 상한 4회)으로 갱신: 지표 표, 새 뉴스 append, 촉매 상태. `updated`가 오늘이면 건너뜀.
 4. 갱신 중 눈에 띄는 것(전일 대비 ±5% 이상, 새 공시, 촉매 완료)을 Stage 4용으로 메모.
 5. **종목별 공시 추적** — 마지막 `updated` 이후 새 공시가 있으면 섹션 3 촉매 표에 "완료" 행(공시명·날짜·링크)으로 넣고, 정기보고서면 섹션 2 지표·서술도 갱신한다.
-   - US (SEC EDGAR, 클라우드에서는 `sec.gov` 직접 접근이 egress 차단되므로 **Jina 프록시 경유**): 
+   - US — **먼저 `data/edgar.json`을 본다.** 로컬 PC의 `scripts/edgar_fetch.py`가 매일 06:40 KST에 만들어 push하는 파일로, `tracked[티커].filings`에 최근 30일 10-K/10-Q/8-K/SC 13D/Form 4가 `form`·`date`·`items`·`url`로 들어 있다. `generated_at`이 24시간 이내면 이것만 쓰고 EDGAR를 호출하지 않는다. `cik`도 여기서 가져와 frontmatter에 저장한다. Form 4는 매수/매도 구분이 없으므로 "임원 거래 N건(링크)"으로만 적는다. 파일이 없거나 24시간을 넘겼으면 아래 경로로 시도하고, 그것도 안 되면 "데이터 이슈"에 "EDGAR 미수집(로컬 스크립트 미실행)"을 적는다.
+   - US 직접 조회 (SEC EDGAR, 클라우드에서는 `sec.gov` 직접 접근이 egress 차단되므로 **Jina 프록시 경유**): 
      1. CIK: 페이지 frontmatter에 `cik:`가 있으면 그것을 쓴다. 없으면 한 번만 조회해 frontmatter에 저장 — Bash: `curl -s -H "X-Return-Format: text" https://r.jina.ai/https://www.sec.gov/files/company_tickers.json | python3 -c "import sys,json;t=sys.stdin.read();d=json.loads(t[t.find('{'):]);print([v['cik_str'] for v in d.values() if v['ticker']=='{티커}'])"` (800KB이므로 반드시 python으로 걸러 출력하고 파일 전체를 읽지 않는다).
      2. 공시 목록: `curl -s -H "X-Return-Format: text" https://r.jina.ai/https://data.sec.gov/submissions/CIK{10자리 0패딩}.json` → `filings.recent`의 `form`·`filingDate`·`accessionNumber`·`primaryDocument` 배열(같은 인덱스끼리 한 건). 마지막 `updated` 이후만 본다. 링크는 `https://www.sec.gov/Archives/edgar/data/{cik}/{accessionNumber에서 하이픈 제거}/{primaryDocument}`.
      3. `form`별 처리: `10-K`/`10-Q`(실적·리스크 요인 → 촉매 "완료" + 섹션 2 갱신), `8-K`(촉매; 항목은 알 수 없으므로 뉴스로 보완), `SC 13D`(행동주의 → 촉매), `4`(임원 거래 — **매수만** 뉴스 섹션에 한 줄, 매도·`144`는 무시), `N-PX`·`3`·`S-8`·`424B*` 무시.
@@ -51,7 +52,8 @@
 후보 신호 종목은 Stage 2로 넘긴다. 공시는 그 자체가 촉매이므로 Stage 2의 "뉴스 촉매" 조건을 충족한 것으로 본다. 단, 시총 필터와 시장별 상위 3개 상한은 그대로 적용한다.
 
 ## Stage 1d — 공시 스캔 (US, SEC EDGAR)
-접근 경로 두 가지. 먼저 직접 접근을 시도하고, 200이 아니면(클라우드 egress 차단 시 403/000) **Jina text 모드**로 같은 URL을 부른다:
+**먼저 `data/edgar.json`의 `market_8k_signals`와 `sc13d`를 본다** (`generated_at` 24시간 이내일 때). 각 항목에 `ticker`·`name`·`signal_items`·`date`·`url`이 있고, 티커 없는 회사는 이미 제외돼 있다. 100건 넘게 오는 날이 많으므로: ① `name`에 Acquisition Corp·Trust·Fund·ETF가 들어가면 제외, ② `2.02`만 있는 항목은 워치리스트·기존 페이지 종목이 아니면 제외, ③ 남은 것 중 `1.01`/`2.01`/`1.03`을 우선해 상위 10개만 `UsStockInfo-get_stock_info`로 시총·업종을 확인해 Stage 2로 넘긴다. 파일이 없거나 오래됐을 때만 아래 경로를 쓴다.
+아래는 직접 조회 경로 — 먼저 직접 접근을 시도하고, 200이 아니면(클라우드 egress 차단 시 403/000) **Jina text 모드**로 같은 URL을 부른다:
 - 직접: `curl -s -A "research-factory bot you@example.com" "<URL>"` — UA에 연락처가 없으면 SEC가 403을 준다. 초당 10회 이하.
 - Jina 경유(클라우드): `curl -s -H "X-Return-Format: text" "https://r.jina.ai/<URL>"` — **반드시 text 모드**. 기본(markdown)·html 모드는 Atom 항목이 비어서 온다(2026-09-10 확인). text 모드 출력은 항목마다 `8-K - 회사명 (CIK) (Filer)` 줄, `Filed: 날짜 AccNo: … Size: …` 줄, `Item N.NN: 설명` 줄들이 순서대로 나온다. 한 페이지 100건이 약 60~70KB이므로 Bash에서 `grep -E "^8-K|Item [0-9]|^ *Filed:"`로 걸러 읽고 원문 전체를 컨텍스트에 넣지 않는다.
 API 키는 필요 없다.

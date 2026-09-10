@@ -43,6 +43,7 @@
 6. **워치리스트** — `.claude/skills/research-factory/watchlist.md`에 종목을 넣는다.
 7. **routine 생성** — Claude Code에서 `/schedule` 실행 후 [docs/routine-setup.md](docs/routine-setup.md)의 프롬프트·설정을 그대로 사용. 첫 실행은 "run now"로 돌려 push까지 되는지 확인.
 8. (선택) **Obsidian**으로 clone 폴더를 vault로 열고, 작업 스케줄러에 07:40 `git pull`을 등록.
+9. (선택, 미국 공시) 클라우드는 SEC EDGAR에 접근하지 못하므로 로컬 PC에서 `py -3 scripts/edgar_fetch.py --push`를 **06:40 KST**에 예약 실행한다. 표준 라이브러리만 쓰며 `data/edgar.json`(종목별 최근 30일 10-K/10-Q/8-K/13D/Form 4 + 전일 8-K 신호 항목)을 만들어 push하고, 배치는 이 파일을 우선 읽는다. `EDGAR_UA_EMAIL` 환경변수 또는 스크립트 상단의 이메일을 본인 것으로 바꿀 것.
 
 ## 로컬에서 바로 쓰기
 
@@ -66,13 +67,14 @@ CLAUDE.md                              위키 규칙 (Claude용) — 디렉터�
     entity-ticker.md                   종목 페이지 템플릿
     batch-funnel.md                    배치 Stage 0~6, 필터 기준, 공시 분류 규칙
 docs/routine-setup.md                  클라우드 routine 설정
+scripts/edgar_fetch.py                 로컬 EDGAR 수집기 (선택) → data/edgar.json
 pages/  raw/  index.md  log.md         위키 본체 (raw/는 사용자가 넣는 원본만)
 ```
 
 ## 알아둘 제약
 
 - KR 시세 랭킹 API는 개장 전(07시) 조회 시 0을 돌려주므로 배치는 기사·공시 기반으로 후보를 찾는다.
-- SEC EDGAR는 클라우드 egress에서 차단되는 날이 있다. 그럴 땐 미국 공시 추적을 건너뛰고 다이제스트에 기록한다.
+- SEC EDGAR는 클라우드 egress에서 차단된다. 로컬 `scripts/edgar_fetch.py`가 만든 `data/edgar.json`이 있으면 그것을 쓰고, 없으면 미국 공시 추적을 건너뛰고 다이제스트에 기록한다.
 - 일부 미국 뉴스 사이트(seekingalpha·cnbc)는 클라우드에서 원문 접근이 막혀 검색 스니펫으로 대체된다.
 - 배치 1회 비용은 워치리스트 크기에 비례한다. 기본 상한: 갱신 30종목 + 신규 후보 6개.
 

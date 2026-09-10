@@ -9,6 +9,7 @@
 | 가격 히스토리(반응 확인) | `koreaStock-stock_get_price_history` | `UsStockInfo-get_historical_stock_prices` |
 | 회사 개요·사업 | `koreaStock-dart_get_company_overview`, `opendart-get_company_info` | `UsStockInfo-get_stock_info` |
 | 공시·실적 발표(종목별) | `koreaStock-dart_search_filings(stockCode, start_date, end_date)` | SEC EDGAR `data.sec.gov/submissions/CIK{10자리}.json`(`filings.recent`) — 클라우드에서는 `https://r.jina.ai/` 접두어 + `-H "X-Return-Format: text"`로 경유(sec.gov 직접 접근은 egress 차단). CIK는 `sec.gov/files/company_tickers.json`(Jina 경유, python으로 필터)에서 1회 조회 후 frontmatter `cik:`에 저장. 절차는 batch-funnel.md Stage 0-5. 재무 수치는 `UsStockInfo-get_financial_statement` |
+| US 공시 캐시(우선) | — | `data/edgar.json` — 로컬 `scripts/edgar_fetch.py`(표준 라이브러리, 06:40 KST 예약 작업)가 생성·push. `tracked`(종목별 최근 30일 공시), `market_8k_signals`(전일 8-K 중 1.01/2.01/1.03/5.02/2.02), `sc13d`, `issues`. `generated_at` 24시간 이내면 아래 두 행 대신 이것을 쓴다 |
 | 전 시장 공시 스캔(US) | (KR은 아래 행) | EDGAR Atom `browse-edgar?action=getcurrent&type=8-K…` — **직접 접근이 되는 환경에서만**(클라우드 차단, Jina로도 불가). 규칙은 batch-funnel.md Stage 1d. UA 헤더 필수, 키 불필요 |
 | 밸류·리스크 플래그 | `koreaStockAnalyz-get_valuation`, `koreaStockAnalyz-get_risk_flags` | `UsStockInfo-get_recommendations` |
 | 종목 뉴스 | `koreaStock-market_get_news`, `NaverSearch-search_news` | `UsStockInfo-get_finance_news`, WebSearch |
